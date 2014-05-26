@@ -55,4 +55,3 @@ def classify_test_data():
                     index = i
             ofile.write(str(c)+','+str(index)+'\n')
             c += 1
-    ofile.close()
