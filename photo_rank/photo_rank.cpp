@@ -1,7 +1,3 @@
-/* Use g++ photo_rank.cpp -lopencv_highgui -lopencv_core -lopencv_imgproc
- *
- * */
-
 #include <iostream>
 #include <string>
 #include <cmath>
