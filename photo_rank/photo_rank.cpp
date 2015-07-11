@@ -15,8 +15,8 @@
 #define UP 4
 #define DOWN 5
 
-bool sortItems(std::pair<float, int> a, std::pair<float, int> b) {
-  return a.first > b.first ? true : false;
+bool sortItems(std::pair<std::string, double> a, std::pair<std::string, double> b) {
+  return a.second > b.second ? true : false;
 }
 
 int readImage(std::string filepath, cv::Mat &normIm) {
@@ -117,16 +117,16 @@ int sampleImage(const cv::Mat &im, cv::Mat &spectrum, int pos) {
   return 0;
 }
 
-
-int main(int argc, char **argv) {
-
-  std::vector<std::string> img_list;
+std::vector<std::string>* getImageFileNamesList(std::string imageRepositoryLocation) {
+  std::vector<std::string> *img_list = new std::vector<std::string>();
 
   DIR *dir;
   struct dirent *ent;
-  if ((dir = opendir("test_data")) != NULL) {
+  if ((dir = opendir(imageRepositoryLocation.c_str())) != NULL) {
     while ((ent = readdir (dir)) != NULL) {
-      img_list.push_back(std::string("test_data/") + ent->d_name);
+      if (std::string(ent->d_name).find(".jpg") != std::string::npos) {
+        img_list->push_back(imageRepositoryLocation + "/" + ent->d_name);
+      }
     }
     closedir (dir);
   }
@@ -135,35 +135,54 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  std::vector<std::pair<float, int> > ranks;
-  for (int i = 0; i < img_list.size(); i++) {
-    cv::Mat im;
-    if (readImage(img_list[i], im) != 0) {
-      img_list.erase(img_list.begin()+i);
-      std::cout << "Bad image: " + img_list[i] << std::endl;
-    }
-    else {
+  return img_list;
+}
 
-      float rms = 0;
-      for (int j = 1; j < 5; j++) {
-        cv::Mat magI;
-        sampleImage(im, magI, j);
-        cv::Scalar mean = cv::mean(magI);
-        rms += std::sqrt((std::pow(mean[0], 2) + std::pow(mean[1], 2) + std::pow(mean[2], 2))/3);
-      }
-      ranks.push_back(std::pair<float, int>(rms, i));
+double rankImage(std::string imageFilename) {
+  cv::Mat im;
+  double rms = 0;
+  if (readImage(imageFilename, im) == 0) {
+    for (int j = 1; j < 5; j++) {
+      cv::Mat magI;
+      sampleImage(im, magI, j);
+      cv::Scalar mean = cv::mean(magI);
+      rms += std::sqrt((std::pow(mean[0], 2) + std::pow(mean[1], 2) + std::pow(mean[2], 2))/3);
     }
   }
 
-  std::sort(ranks.begin(), ranks.end(), sortItems);
+  return rms;
+}
 
-  for (int i = 0; i < ranks.size(); i++) {
-    cv::Mat temp;
-    cv::resize(cv::imread(img_list[ranks[i].second]), temp, cv::Size(200, 200));
-    cv::imshow("Rank " + std::to_string(i), temp);
+void showImages(std::vector<std::pair<std::string, double> > rankedImageList) {
+  for (std::pair<std::string, double> rankImagePair : rankedImageList) {
+    cv::Mat image;
+    cv::resize(cv::imread(rankImagePair.first), image, cv::Size(200, 200));
+    cv::imshow(rankImagePair.first, image);
     cv::waitKey(1500);
-    std::cout << ranks[i].first << " " << img_list[ranks[i].second] << std::endl;
   }
+}
+
+
+int main(int argc, char **argv) {
+
+  std::string imageRepositoryLocation = "data/test_data";
+
+  std::vector<std::string> *imageFilenameList = getImageFileNamesList(imageRepositoryLocation);
+
+  std::vector<std::pair<std::string, double> > rankedImageList;
+
+  for (std::string imageFileName : *imageFilenameList) {
+    double imageRankScore = rankImage(imageFileName);
+    rankedImageList.push_back(std::pair<std::string, double>(imageFileName, imageRankScore));
+  }
+
+  std::sort(rankedImageList.begin(), rankedImageList.end(), sortItems);
+
+  for (std::pair<std::string, double> rankImagePair : rankedImageList) {
+    std::cout << rankImagePair.first << " " << rankImagePair.second << std::endl;
+  }
+
+  showImages(rankedImageList);
 
   return(0);
 }
